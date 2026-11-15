@@ -1,4 +1,5 @@
 #include <QDeclarativeError>
+#include <QTimer>
 #include <QtDeclarative>
 
 #include <bb/cascades/AbstractPane>
@@ -20,6 +21,7 @@ Q_DECL_EXPORT int main(int argc, char **argv)
     Application application(argc, argv);
 
     qmlRegisterType<WebImageView>("tidal", 1, 0, "WebImageView");
+    qmlRegisterType<QTimer>("tidal", 1, 0, "QTimer");
 
     App *app = new App(&application);
     Player *player = new Player(&application);

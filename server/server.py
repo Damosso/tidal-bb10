@@ -48,6 +48,25 @@ def logged_in():
         return False
 
 
+def has_session():
+    """Cheap local check (no network) that a TIDAL login is loaded."""
+    u = session.user
+    return bool(u is not None and getattr(u, "id", None) and session.session_id)
+
+
+def login_keeper():
+    """While not logged in, keep a valid login code available and print it,
+    so it can be read from the server or container log."""
+    while not has_session():
+        p = pending_login
+        if not p or p["expires"] <= time.time():
+            try:
+                start_login()
+            except Exception as e:
+                print("Could not start TIDAL login:", e)
+        time.sleep(5)
+
+
 def try_restore():
     if SESSION_FILE.exists():
         try:
@@ -82,7 +101,11 @@ def start_login():
                 print("Tidal login failed or expired:", f.exception())
 
         future.add_done_callback(done)
-        print("Log in to Tidal at:", url)
+        print("\n=== Connect your TIDAL account ===\n"
+              "On any phone or computer, open  %s\n"
+              "(or go to link.tidal.com and enter the code  %s )\n"
+              "The code expires in %d minutes; a new one is printed after that.\n"
+              % (url, link.user_code, link.expires_in // 60), flush=True)
         return pending_login
 
 
@@ -99,6 +122,18 @@ def check_password():
         return None
     return Response("Password required", 401,
                     {"WWW-Authenticate": 'Basic realm="Tidal-BB10"'})
+
+
+LOGIN_FREE = ("/api/status", "/api/login")
+
+
+@app.before_request
+def require_tidal_login():
+    if request.path in LOGIN_FREE:
+        return None
+    if request.path.startswith(("/api/", "/stream/")) and not has_session():
+        return jsonify({"error": "Not connected to TIDAL yet", "needLogin": True}), 403
+    return None
 
 
 saved_token = None
@@ -452,5 +487,5 @@ if __name__ == "__main__":
     try_restore()
     print("\nTidal-BB10 bridge — open on the BlackBerry:  http://%s:%d/\n" % (lan_ip(), PORT))
     if not logged_in():
-        print("Not logged in to Tidal yet — open the page above and follow the login step.\n")
+        threading.Thread(target=login_keeper, daemon=True).start()
     app.run(host="0.0.0.0", port=PORT, threaded=True)

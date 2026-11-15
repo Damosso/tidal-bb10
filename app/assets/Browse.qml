@@ -9,6 +9,7 @@ Container {
     property string basePath: ""
 
     signal openItem(string kind, string itemId, string title)
+    signal needLogin()
 
     function fmt(sec) {
         var s = Math.floor(sec % 60);
@@ -40,6 +41,11 @@ Container {
             }
             if (xhr.status == 401) {
                 status.text = "The server wants a password. Swipe down from the top and choose Settings.";
+                return;
+            }
+            if (data && data.needLogin) {
+                status.text = "The server is not connected to TIDAL yet.";
+                browse.needLogin();
                 return;
             }
             if (xhr.status != 200 || !data || !data.sections) {

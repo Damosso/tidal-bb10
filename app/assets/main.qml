@@ -14,6 +14,73 @@ TabbedPane {
         page.load("/api/" + kind + "/" + itemId);
     }
 
+    property bool loginBusy: false
+    property bool loginOpen: false
+
+    // TIDAL login: the bridge hands out a code that is entered at
+    // link.tidal.com on any other device; this polls until it is done.
+    function checkLogin() {
+        var xhr = new XMLHttpRequest();
+        xhr.onreadystatechange = function () {
+            if (xhr.readyState != 4)
+                return;
+            var st = null;
+            try {
+                st = JSON.parse(xhr.responseText);
+            } catch (e) {
+            }
+            if (!st)
+                return;   // unreachable server: the lists already say so
+            if (st.loggedIn) {
+                if (tabs.loginOpen) {
+                    loginTimer.stop();
+                    loginSheet.close();
+                    homeBrowse.load("/api/home?fresh=1", false);
+                }
+                return;
+            }
+            if (st.login)
+                tabs.showLogin(st.login);
+            else
+                tabs.startLogin();
+        };
+        xhr.open("GET", app.url("/api/status"));
+        xhr.send();
+    }
+
+    function startLogin() {
+        if (tabs.loginBusy)
+            return;
+        tabs.loginBusy = true;
+        var xhr = new XMLHttpRequest();
+        xhr.onreadystatechange = function () {
+            if (xhr.readyState != 4)
+                return;
+            tabs.loginBusy = false;
+            var r = null;
+            try {
+                r = JSON.parse(xhr.responseText);
+            } catch (e) {
+            }
+            if (r && r.login)
+                tabs.showLogin(r.login);
+            else if (r && r.loggedIn)
+                tabs.checkLogin();
+        };
+        xhr.open("POST", app.url("/api/login"));
+        xhr.send();
+    }
+
+    function showLogin(login) {
+        loginCode.text = login.code;
+        loginLink.text = login.url.replace(/^https?:\/\//, "");
+        if (!tabs.loginOpen) {
+            tabs.loginOpen = true;
+            loginSheet.open();
+        }
+        loginTimer.start();
+    }
+
     function fmt(ms) {
         var sec = Math.floor(ms / 1000);
         var s = sec % 60;
@@ -40,12 +107,71 @@ TabbedPane {
     }
 
     onCreationCompleted: {
+        if (app.server != "")
+            tabs.checkLogin();
         if (app.server == "") {
             settingsSheet.open();
         }
     }
 
     attachedObjects: [
+        QTimer {
+            id: loginTimer
+            interval: 3000
+            onTimeout: tabs.checkLogin()
+        },
+        Sheet {
+            id: loginSheet
+            onClosed: {
+                tabs.loginOpen = false;
+                loginTimer.stop();
+            }
+            Page {
+                titleBar: TitleBar {
+                    title: "Connect TIDAL"
+                    dismissAction: ActionItem {
+                        title: "Later"
+                        onTriggered: loginSheet.close()
+                    }
+                }
+                ScrollView {
+                    Container {
+                        leftPadding: 36
+                        rightPadding: 36
+                        topPadding: 30
+                        Label {
+                            multiline: true
+                            text: "The server is not connected to a TIDAL account yet. On any other phone or computer, open this address:"
+                        }
+                        Label {
+                            id: loginLink
+                            topMargin: 20
+                            horizontalAlignment: HorizontalAlignment.Center
+                            textStyle.base: SystemDefaults.TextStyles.TitleText
+                            textStyle.color: Color.create("#31d0c6")
+                        }
+                        Label {
+                            topMargin: 30
+                            multiline: true
+                            text: "Log in with your TIDAL account there. If it asks for a code, enter:"
+                        }
+                        Label {
+                            id: loginCode
+                            topMargin: 20
+                            horizontalAlignment: HorizontalAlignment.Center
+                            textStyle.base: SystemDefaults.TextStyles.BigText
+                            textStyle.fontWeight: FontWeight.Bold
+                        }
+                        Label {
+                            topMargin: 30
+                            multiline: true
+                            text: "This screen closes by itself once you are logged in. The login is saved on the server, so this is needed only once."
+                            textStyle.color: Color.Gray
+                        }
+                    }
+                }
+            }
+        },
         ComponentDefinition {
             id: listPageDef
             source: "ListPage.qml"
@@ -65,6 +191,7 @@ TabbedPane {
                             app.server = serverField.text;
                             app.password = passwordField.text;
                             homeBrowse.load("/api/home?fresh=1", false);
+                            tabs.checkLogin();
                             settingsSheet.close();
                         }
                     }
@@ -129,6 +256,7 @@ TabbedPane {
                 Browse {
                     id: homeBrowse
                     onOpenItem: tabs.openItem(homeNav, kind, itemId, title)
+                    onNeedLogin: tabs.startLogin()
                     onCreationCompleted: {
                         if (app.server != "")
                             homeBrowse.load("/api/home", false);
@@ -181,6 +309,7 @@ TabbedPane {
                     Browse {
                         id: searchBrowse
                         onOpenItem: tabs.openItem(searchNav, kind, itemId, title)
+                        onNeedLogin: tabs.startLogin()
                     }
                 }
             }

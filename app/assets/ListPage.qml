@@ -19,6 +19,7 @@ Page {
     Browse {
         id: browse
         onOpenItem: page.main.openItem(page.nav, kind, itemId, title)
+        onNeedLogin: page.main.startLogin()
     }
 
     actions: [

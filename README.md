@@ -31,10 +31,7 @@ not affiliated with or endorsed by TIDAL.
 
 ## 1. Run the bridge
 
-Pick one of the three ways below. Afterwards, open
-`http://<server-address>:8686/` in any browser: the first time it shows a
-code to enter at link.tidal.com to connect your TIDAL account. That login is
-saved, so you only do it once.
+Pick one of the three ways below, then connect your TIDAL account (step 2).
 
 ### Portainer
 
@@ -75,7 +72,39 @@ It prints the address to use on the phone.
 | `PORT` | Port on the host (Docker) or to listen on (plain Python). Default `8686`. |
 | `TIDAL_SESSION_FILE` | Where the TIDAL login is saved. The Docker image uses a volume. |
 
-## 2. Install the app on the phone
+## 2. Connect your TIDAL account
+
+The bridge needs to be logged in to your TIDAL account once. You never type
+your TIDAL password into the bridge or the phone: TIDAL's own website asks for
+it, the same way you connect a smart TV.
+
+1. Get a login link. Any of these shows the same link and code:
+   - **The BlackBerry app**: open it and enter the server address. If the
+     bridge isn't connected yet, a **Connect TIDAL** screen appears.
+   - **A browser**: open `http://<server-address>:8686/` (user name `bb`
+     and your `BB_PASSWORD` if it asks).
+   - **The server log**: Portainer → Containers → `tidal-bb10` → Logs, or
+     `docker compose logs tidal-bb10`, or the terminal running `start.sh`.
+     Look for `Connect your TIDAL account`.
+2. On any phone or computer with a modern browser, open the link, for example
+   `https://link.tidal.com/ABCDE`. (The BB10 browser is too old for TIDAL's
+   login page.)
+3. Log in with your TIDAL account. If it asks for a code, enter the code
+   shown next to the link.
+4. Done. Within a few seconds the app's login screen closes and the web
+   player continues by itself.
+
+Good to know:
+- The code is valid for about 5 minutes. A new one appears automatically
+  (in the app, the browser and the log) when the old one expires.
+- The login is saved on the server (in the Docker volume, or
+  `server/tidal-session.json`) and renews itself, so you do this only once.
+- To switch accounts or log in again, delete that saved login and restart
+  the bridge. With Docker: remove the `tidal-bb10-data` volume.
+- If you change your TIDAL password or sign out all devices in your TIDAL
+  account, the bridge asks you to connect again.
+
+## 3. Install the app on the phone
 
 1. Download `tidal-bb10.bar` from the
    [Releases](../../releases) page, or build it yourself (below).
@@ -84,7 +113,8 @@ It prints the address to use on the phone.
 3. Sideload the `.bar` with a tool such as Sachesi or DDPB.
 4. Open Tidal-BB10. It asks for the server address (for example
    `192.168.1.10:8686`) and the password. You can change these later by
-   swiping down from the top of the app → Settings.
+   swiping down from the top of the app → Settings. If the bridge isn't
+   connected to TIDAL yet, the app shows the login screen from step 2.
 
 Prefer not to install anything? Open `http://<server-address>:8686/` in the
 BB10 browser instead. The web player keeps playing with the screen off.
@@ -95,9 +125,10 @@ BB10 browser instead. The web player keeps playing with the screen off.
   that machine (same Wi-Fi, or the port is open in the server's firewall), and
   that the bridge is running.
 - **"The server wants a password"**: enter the same `BB_PASSWORD` in Settings.
+- **"The server is not connected to TIDAL yet"**: follow step 2.
 - **Anything else**: swipe down from the top → Log shows what went wrong.
 
-## 3. Build the app yourself
+## 4. Build the app yourself
 
 BlackBerry no longer offers the Native SDK for download, so the build runs in
 a community Docker image that contains the BlackBerry 10 Native SDK 10.3.1
