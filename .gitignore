@@ -1,0 +1,15 @@
+# Your TIDAL login - never commit this
+tidal-session.json
+
+# Local settings for docker compose (holds BB_PASSWORD)
+.env
+
+# Python
+.venv/
+__pycache__/
+
+# App build output (attach the .bar to a GitHub release instead)
+app/build/
+*.bar
+
+.DS_Store

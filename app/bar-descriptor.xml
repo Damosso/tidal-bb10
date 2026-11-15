@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<qnx xmlns="http://www.qnx.com/schemas/application/1.0">
+    <id>io.github.tidalbb10</id>
+    <name>Tidal-BB10</name>
+    <versionNumber>1.0.0</versionNumber>
+    <buildId>1</buildId>
+    <description>Unofficial TIDAL client; plays through a Tidal-BB10 bridge server</description>
+    <author>Tidal-BB10 contributors</author>
+
+    <initialWindow>
+        <autoOrients>true</autoOrients>
+        <systemChrome>none</systemChrome>
+    </initialWindow>
+
+    <configuration name="Device-Release">
+        <platformArchitecture>armle-v7</platformArchitecture>
+        <asset path="build/app/tidal" entry="true" type="Qnx/Elf">tidal</asset>
+    </configuration>
+
+    <asset path="assets">assets</asset>
+    <asset path="icon.png">icon.png</asset>
+    <icon>
+        <image>icon.png</image>
+    </icon>
+
+    <permission system="true">run_native</permission>
+    <permission>access_internet</permission>
+    <permission>run_when_backgrounded</permission>
+
+    <env var="LD_LIBRARY_PATH" value="app/native/lib:/usr/lib/qt4/lib"/>
+    <env var="CASCADES_THEME" value="dark"/>
+</qnx>
