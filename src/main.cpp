@@ -10,6 +10,7 @@
 #include <bb/cascades/ScrollView>
 
 #include "app.hpp"
+#include "downloads.hpp"
 #include "player.hpp"
 #include "webimageview.hpp"
 
@@ -19,16 +20,20 @@ Q_DECL_EXPORT int main(int argc, char **argv)
 {
     qInstallMsgHandler(App::messageHandler);
     Application application(argc, argv);
+    App::setupCertificates();   // before any secure connection
 
     qmlRegisterType<WebImageView>("tidal", 1, 0, "WebImageView");
     qmlRegisterType<QTimer>("tidal", 1, 0, "QTimer");
 
     App *app = new App(&application);
     Player *player = new Player(&application);
+    Downloads *downloads = new Downloads(app, &application);
+    player->setDownloads(downloads);
 
     QmlDocument *qml = QmlDocument::create("asset:///main.qml").parent(&application);
     qml->setContextProperty("app", app);
     qml->setContextProperty("player", player);
+    qml->setContextProperty("downloads", downloads);
 
     AbstractPane *root = qml->hasErrors() ? 0 : qml->createRootObject<AbstractPane>();
     if (!root) {

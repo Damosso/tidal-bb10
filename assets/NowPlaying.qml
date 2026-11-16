@@ -8,6 +8,10 @@ Page {
 
     property bool dragging: false
 
+    // Song actions, handled in main.qml: album, artist, playlist,
+    // favorite, download, undownload.
+    signal trackMenu(string what, variant track)
+
     function fmt(ms) {
         var sec = Math.floor(ms / 1000);
         var s = sec % 60;
@@ -17,7 +21,7 @@ Page {
     function largeCover(url) {
         if (url == "")
             return "";
-        return url + (url.indexOf("?") < 0 ? "?" : "&") + "s=l";
+        return url.replace("/160x160.jpg", "/320x320.jpg");
     }
 
     function sync() {
@@ -25,7 +29,53 @@ Page {
             seekBar.value = player.position;
     }
 
-    onCreationCompleted: player.positionChanged.connect(nowPage.sync)
+    onCreationCompleted: {
+        player.positionChanged.connect(nowPage.sync);
+        player.trackChanged.connect(nowPage.refreshSaved);
+    }
+
+    function act(what) {
+        if (player.hasTrack)
+            nowPage.trackMenu(what, player.track);
+    }
+
+    property bool saved: player.hasTrack && downloadState == "done"
+    property string downloadState: ""
+    property int downloadCount: downloads.count
+    property int downloadQueue: downloads.queued
+    function refreshSaved() {
+        nowPage.downloadState = player.hasTrack ? downloads.state(player.track.id) : "";
+    }
+    onDownloadCountChanged: refreshSaved()
+    onDownloadQueueChanged: refreshSaved()
+
+    actions: [
+        ActionItem {
+            title: "Go to album"
+            enabled: player.hasTrack && player.track.albumId != ""
+            onTriggered: nowPage.act("album")
+        },
+        ActionItem {
+            title: "Go to artist"
+            enabled: player.hasTrack && player.track.artistId != ""
+            onTriggered: nowPage.act("artist")
+        },
+        ActionItem {
+            title: "Add to playlist"
+            enabled: player.hasTrack
+            onTriggered: nowPage.act("playlist")
+        },
+        ActionItem {
+            title: "Add to My tracks"
+            enabled: player.hasTrack
+            onTriggered: nowPage.act("favorite")
+        },
+        ActionItem {
+            title: nowPage.saved ? "Remove download" : (nowPage.downloadState != "" ? "Downloading…" : "Download")
+            enabled: player.hasTrack && (nowPage.saved || nowPage.downloadState == "")
+            onTriggered: nowPage.act(nowPage.saved ? "undownload" : "download")
+        }
+    ]
 
     Container {
         layout: DockLayout {
@@ -93,10 +143,20 @@ Page {
                         bottomMargin: 6
                         textStyle.base: SystemDefaults.TextStyles.BodyText
                         textStyle.color: player.hasTrack ? Color.create("#31d0c6") : Color.Gray
+                        gestureHandlers: [
+                            TapHandler {
+                                onTapped: nowPage.act("artist")
+                            }
+                        ]
                     }
                     Label {
-                        text: player.album
+                        text: player.album + (player.offline ? "  · downloaded" : "")
                         visible: player.album != ""
+                        gestureHandlers: [
+                            TapHandler {
+                                onTapped: nowPage.act("album")
+                            }
+                        ]
                         topMargin: 0
                         textStyle.base: SystemDefaults.TextStyles.SubtitleText
                         textStyle.color: Color.create("#9aa5b1")

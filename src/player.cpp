@@ -1,5 +1,7 @@
 #include "player.hpp"
 
+#include "downloads.hpp"
+
 #include <QDebug>
 #include <QMetaObject>
 #include <QSettings>
@@ -113,6 +115,8 @@ Player::Player(QObject *parent)
     , m_worker(new PlayerWorker())
     , m_npc(new NowPlayingConnection("tidalbb", this))
     , m_shuffle(false)
+    , m_offline(false)
+    , m_downloads(0)
     , m_pos(-1)
     , m_generation(0)
     , m_position(0)
@@ -221,6 +225,7 @@ void Player::playAt(int index)
     m_track = m_queue.at(index).toMap();
     m_position = 0;
     m_duration = m_track.value("duration").toInt() * 1000;
+    m_offline = m_downloads && !m_downloads->localUrl(m_track.value("id").toString()).isEmpty();
     setStatus(QString());
     setLoading(true);
     emit trackChanged();
@@ -239,9 +244,13 @@ void Player::startLoad()
 {
     m_pendingLoad = false;
     m_generation = PlayerWorker::latest.fetchAndAddOrdered(1) + 1;
-    QMetaObject::invokeMethod(m_worker, "load", Qt::QueuedConnection,
-                              Q_ARG(QString, m_track.value("stream").toString()),
-                              Q_ARG(int, m_generation));
+    // A downloaded copy plays without the network; otherwise the
+    // interface fetches a stream link from TIDAL (see provideStream).
+    const QString local = m_downloads ? m_downloads->localUrl(m_track.value("id").toString()) : QString();
+    if (!local.isEmpty())
+        loadUrl(local);
+    else
+        emit needStreamUrl(m_track.value("id").toString(), m_generation);
 
     QVariantMap meta;
     meta["title"] = title();
@@ -252,6 +261,24 @@ void Player::startLoad()
     m_npc->setPosition(0);
     m_npc->setNextEnabled(m_pos + 1 < m_queue.size());
     m_npc->setPreviousEnabled(true);
+}
+
+void Player::provideStream(int generation, const QString &url)
+{
+    if (generation != m_generation)
+        return;   // the user has moved on to another song
+    if (url.isEmpty()) {
+        onFailed(generation);
+        return;
+    }
+    loadUrl(m_downloads ? m_downloads->proxyUrl(url) : url);
+}
+
+void Player::loadUrl(const QString &url)
+{
+    QMetaObject::invokeMethod(m_worker, "load", Qt::QueuedConnection,
+                              Q_ARG(QString, url),
+                              Q_ARG(int, m_generation));
 }
 
 void Player::toggle()

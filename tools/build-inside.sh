@@ -6,4 +6,4 @@ cd "$(dirname "$0")/.."
 mkdir -p build/app
 (cd build && qmake -spec blackberry-armv7le-qcc CONFIG+=device ../tidal.pro && make -j"$(nproc)")
 blackberry-nativepackager -package build/tidal-bb10.bar bar-descriptor.xml -configuration Device-Release
-echo "packaged: app/build/tidal-bb10.bar"
+echo "packaged: build/tidal-bb10.bar"

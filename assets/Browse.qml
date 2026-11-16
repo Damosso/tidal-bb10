@@ -1,7 +1,8 @@
 import bb.cascades 1.2
 import tidal 1.0
+import "tidal.js" as Tidal
 
-// A list filled from one of the bridge server's /api/... addresses.
+// A list filled from one of the /api/... page addresses answered by tidal.js.
 Container {
     id: browse
 
@@ -10,17 +11,36 @@ Container {
 
     signal openItem(string kind, string itemId, string title)
     signal needLogin()
+    // Long-press menu on a song: what is album, artist, playlist, favorite,
+    // download or undownload.
+    signal trackMenu(string what, variant track)
+
+    property string emptyText: "Nothing found."
+
+    // All songs in the list, for "download all" and "add all to playlist".
+    function tracks() {
+        var out = [];
+        for (var i = 0; i < listModel.size(); i++) {
+            var x = listModel.value(i);
+            if (x.type == "track")
+                out.push(x);
+        }
+        return out;
+    }
 
     function fmt(sec) {
         var s = Math.floor(sec % 60);
         return Math.floor(sec / 60) + ":" + (s < 10 ? "0" : "") + s;
     }
 
+    function clearList() {
+        seq = seq + 1;   // ignore any request still running
+        listModel.clear();
+        status.text = "";
+        busy.running = false;
+    }
+
     function load(path, append) {
-        if (app.server == "") {
-            status.text = "Set the server address first: swipe down from the top and choose Settings.";
-            return;
-        }
         if (!append) {
             listModel.clear();
             basePath = path.split("?")[0];
@@ -29,34 +49,21 @@ Container {
         busy.running = true;
         seq = seq + 1;
         var mySeq = seq;
-        var xhr = new XMLHttpRequest();
-        xhr.onreadystatechange = function () {
-            if (xhr.readyState != 4 || mySeq != browse.seq)
-                return;
+        Tidal.route(path, function (err, data) {
+            if (mySeq != browse.seq)
+                return;   // a newer request replaced this one
             busy.running = false;
-            var data = null;
-            try {
-                data = JSON.parse(xhr.responseText);
-            } catch (e) {
-            }
-            if (xhr.status == 401) {
-                status.text = "The server wants a password. Swipe down from the top and choose Settings.";
-                return;
-            }
-            if (data && data.needLogin) {
-                status.text = "The server is not connected to TIDAL yet.";
+            if (err == "needLogin") {
+                status.text = "Log in to TIDAL to see this.";
                 browse.needLogin();
                 return;
             }
-            if (xhr.status != 200 || !data || !data.sections) {
-                status.text = (data && data.error) ? "Server: " + data.error
-                    : "Cannot reach the server at " + app.server;
+            if (err || !data || !data.sections) {
+                status.text = err ? err : "Something went wrong.";
                 return;
             }
             show(data, append);
-        };
-        xhr.open("GET", app.url(path));
-        xhr.send();
+        });
     }
 
     function show(data, append) {
@@ -76,7 +83,7 @@ Container {
                     "id": "" + it.id,
                     "title": it.title ? it.title : "",
                     "sec": s,
-                    "img": it.img ? app.url("/cover/" + it.img) : "",
+                    "img": it.imgUrl ? it.imgUrl : "",
                     "sub": "",
                     "dur": ""
                 };
@@ -84,9 +91,11 @@ Container {
                     row.artist = it.artist ? it.artist : "";
                     row.album = it.album ? it.album : "";
                     row.duration = it.duration;
-                    row.stream = app.url("/stream/" + it.id);
+                    row.albumId = it.albumId ? "" + it.albumId : "";
+                    row.artistId = it.artistId ? "" + it.artistId : "";
                     row.sub = row.artist + (row.album ? " · " + row.album : "");
-                    row.dur = fmt(it.duration);
+                    row.saved = downloads.state(row.id) == "done";
+                    row.dur = (row.saved ? "● " : "") + fmt(it.duration);
                 } else if (it.type == "artist") {
                     row.sub = "Artist";
                 } else {
@@ -100,7 +109,7 @@ Container {
             listModel.append({ "type": "more", "title": "Load more",
                 "path": basePath + "?offset=" + data.next });
         if (count == 0 && !append)
-            status.text = "Nothing found.";
+            status.text = browse.emptyText;
     }
 
     ActivityIndicator {
@@ -128,9 +137,13 @@ Container {
         }
 
         function itemType(data, indexPath) {
-            if (data.type == "header" || data.type == "more")
+            if (data.type == "header" || data.type == "more" || data.type == "track")
                 return data.type;
             return "item";
+        }
+
+        function trackAction(what, data) {
+            browse.trackMenu(what, data);
         }
 
         listItemComponents: [
@@ -144,6 +157,80 @@ Container {
                 type: "more"
                 StandardListItem {
                     title: ListItemData.title
+                }
+            },
+            ListItemComponent {
+                type: "track"
+                CustomListItem {
+                    id: trackRow
+                    dividerVisible: true
+                    contextActions: [
+                        ActionSet {
+                            title: ListItemData.title
+                            subtitle: ListItemData.artist
+                            ActionItem {
+                                title: "Go to album"
+                                enabled: ListItemData.albumId != ""
+                                onTriggered: trackRow.ListItem.view.trackAction("album", ListItemData)
+                            }
+                            ActionItem {
+                                title: "Go to artist"
+                                enabled: ListItemData.artistId != ""
+                                onTriggered: trackRow.ListItem.view.trackAction("artist", ListItemData)
+                            }
+                            ActionItem {
+                                title: "Add to playlist"
+                                onTriggered: trackRow.ListItem.view.trackAction("playlist", ListItemData)
+                            }
+                            ActionItem {
+                                title: "Add to My tracks"
+                                onTriggered: trackRow.ListItem.view.trackAction("favorite", ListItemData)
+                            }
+                            ActionItem {
+                                title: ListItemData.saved ? "Remove download" : "Download"
+                                onTriggered: trackRow.ListItem.view.trackAction(ListItemData.saved ? "undownload" : "download", ListItemData)
+                            }
+                        }
+                    ]
+                    Container {
+                        layout: StackLayout {
+                            orientation: LayoutOrientation.LeftToRight
+                        }
+                        leftPadding: 14
+                        rightPadding: 14
+                        WebImageView {
+                            url: ListItemData.img
+                            preferredWidth: 92
+                            preferredHeight: 92
+                            minWidth: 92
+                            verticalAlignment: VerticalAlignment.Center
+                            scalingMethod: ScalingMethod.AspectFill
+                        }
+                        Container {
+                            leftPadding: 18
+                            verticalAlignment: VerticalAlignment.Center
+                            layoutProperties: StackLayoutProperties {
+                                spaceQuota: 1
+                            }
+                            Label {
+                                text: ListItemData.title
+                                bottomMargin: 0
+                                textStyle.base: SystemDefaults.TextStyles.PrimaryText
+                            }
+                            Label {
+                                text: ListItemData.sub
+                                topMargin: 0
+                                textStyle.base: SystemDefaults.TextStyles.SubtitleText
+                                textStyle.color: Color.Gray
+                            }
+                        }
+                        Label {
+                            text: ListItemData.dur
+                            verticalAlignment: VerticalAlignment.Center
+                            textStyle.base: SystemDefaults.TextStyles.SmallText
+                            textStyle.color: ListItemData.saved ? Color.create("#31d0c6") : Color.Gray
+                        }
+                    }
                 }
             },
             ListItemComponent {

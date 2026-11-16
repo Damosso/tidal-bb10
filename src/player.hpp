@@ -13,6 +13,8 @@
 #include <bb/multimedia/MediaState>
 #include <bb/multimedia/NowPlayingConnection>
 
+class Downloads;
+
 // Owns the system media player on a background thread. Opening a network
 // stream blocks for seconds, which must not happen on the interface thread.
 class PlayerWorker : public QObject
@@ -70,6 +72,8 @@ class Player : public QObject
     Q_PROPERTY(bool loading READ loading NOTIFY loadingChanged)
     Q_PROPERTY(QString status READ status NOTIFY statusChanged)
     Q_PROPERTY(bool shuffle READ shuffle WRITE setShuffle NOTIFY shuffleChanged)
+    Q_PROPERTY(QVariantMap track READ track NOTIFY trackChanged)
+    Q_PROPERTY(bool offline READ offline NOTIFY trackChanged)
 
 public:
     explicit Player(QObject *parent = 0);
@@ -86,10 +90,16 @@ public:
     bool loading() const { return m_loading; }
     QString status() const { return m_status; }
     bool shuffle() const { return m_shuffle; }
+    QVariantMap track() const { return m_track; }
+    bool offline() const { return m_offline; }
+    void setDownloads(Downloads *downloads) { m_downloads = downloads; }
     void setShuffle(bool on);
 
     // tracks: list of maps with title, artist, album, img, stream, duration (s)
     Q_INVOKABLE void playList(const QVariantList &tracks, int index);
+
+    // The answer to needStreamUrl: a TIDAL stream link, or empty on failure.
+    Q_INVOKABLE void provideStream(int generation, const QString &url);
 
 public slots:
     void toggle();
@@ -107,6 +117,7 @@ signals:
     void loadingChanged();
     void statusChanged();
     void shuffleChanged();
+    void needStreamUrl(const QString &trackId, int generation);
 
 private slots:
     void onAcquired();
@@ -121,6 +132,7 @@ private slots:
 private:
     void playAt(int index);
     void startLoad();
+    void loadUrl(const QString &url);
     void shuffleAround(int index);
     void setLoading(bool loading);
     void setStatus(const QString &text);
@@ -131,6 +143,8 @@ private:
     QVariantList m_queue;      // play order
     QVariantList m_original;   // order as listed
     bool m_shuffle;
+    bool m_offline;
+    Downloads *m_downloads;
     QVariantMap m_track;
     int m_pos;
     int m_generation;

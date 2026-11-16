@@ -4,7 +4,7 @@
     <name>Tidal-BB10</name>
     <versionNumber>1.0.0</versionNumber>
     <buildId>1</buildId>
-    <description>Unofficial TIDAL client; plays through a Tidal-BB10 bridge server</description>
+    <description>Unofficial TIDAL client for BlackBerry 10</description>
     <author>Tidal-BB10 contributors</author>
 
     <initialWindow>
@@ -19,6 +19,9 @@
 
     <asset path="assets">assets</asset>
     <asset path="icon.png">icon.png</asset>
+    <!-- Modern TLS: replaces BB10's QtNetwork, which only does TLS 1.0.
+         Downloaded by tools/fetch-qtnetwork.sh; see README.md. -->
+    <asset path="lib/libQtNetwork.so.4" type="Qnx/Elf">lib/libQtNetwork.so.4</asset>
     <icon>
         <image>icon.png</image>
     </icon>
@@ -26,6 +29,7 @@
     <permission system="true">run_native</permission>
     <permission>access_internet</permission>
     <permission>run_when_backgrounded</permission>
+    <permission>access_shared</permission>
 
     <env var="LD_LIBRARY_PATH" value="app/native/lib:/usr/lib/qt4/lib"/>
     <env var="CASCADES_THEME" value="dark"/>

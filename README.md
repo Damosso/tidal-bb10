@@ -1,170 +1,186 @@
-# Tidal-BB10 — TIDAL on BlackBerry 10
+# Tidal-BB10
 
-An unofficial TIDAL client for BlackBerry 10 phones (tested on a BlackBerry
-Classic with OS 10.3). It has two parts:
+An unofficial TIDAL client for BlackBerry 10 phones. It's a native Cascades
+app that talks to TIDAL directly: no server, computer or bridge needed.
+Tested on a BlackBerry Classic with OS 10.3.
 
-- **The bridge** (`server/`): a small Python server you run on a computer,
-  NAS or VPS. It logs in to TIDAL with your own account and relays music and
-  cover art to the phone over plain HTTP, which the old BB10 network stack can
-  handle.
-- **The app** (`app/`): a native Cascades app for the phone, plus a
-  lightweight web player served by the bridge for use in the BB10 browser.
-
-```
-BlackBerry 10  ──HTTP──▶  Tidal-BB10 bridge  ──HTTPS──▶  TIDAL
- (app or browser)         (your server)
-```
-
-You need a paid TIDAL subscription. The bridge uses the unofficial
-[tidalapi](https://github.com/tamland/python-tidal) library. This project is
-not affiliated with or endorsed by TIDAL.
+You need a paid TIDAL subscription. This project is not affiliated with,
+endorsed by or supported by TIDAL. "TIDAL" is a trademark of its owner and is
+used here only to say what the app works with.
 
 ## Features
 
-- Home screen with your TIDAL home page: daily mixes, radio stations,
-  recently played, favourite artists, new albums
-- Search tracks, albums, artists and playlists
-- Your library: mixes, playlists, favourite tracks, albums and artists
-- Play queue with shuffle, seeking, lock-screen and headset-button controls
-- Background playback
-- Optional password protection for servers reachable from the internet
+- **Home**: your personal TIDAL home page with daily mixes, radio stations,
+  recently played, favourite artists and new albums
+- **Search**: tracks, albums, artists and playlists
+- **My music**: your mixes, playlists, favourite tracks, albums and artists
+- **Player**: play queue, shuffle, seeking, background playback, and the
+  lock screen, media keys and headset buttons
+- **Long-press a song** to go to its album or artist, add it to a playlist or
+  My tracks, or download it. On the Playing screen, tap the artist or album.
+- **Playlists**: create playlists and add songs, whole albums or playlists
+- **Offline listening**: download songs, albums and playlists to the phone or
+  the SD card. Like TIDAL's own offline mode, downloads are encrypted so they
+  only play in this app, and only while it has confirmed your subscription in
+  the last 30 days.
 
-## 1. Run the bridge
+## Install
 
-Pick one of the three ways below, then connect your TIDAL account (step 2).
-
-### Portainer
-
-1. Stacks → Add stack → **Repository**.
-2. Repository URL: this repository. Compose path: `docker-compose.yml`.
-3. Under **Environment variables** add `BB_PASSWORD` with a long random
-   password (and optionally `TIDAL_QUALITY`, see below).
-4. Deploy the stack.
-
-To update later, use **Pull and redeploy** on the stack page.
-
-### Docker Compose
-
-```bash
-git clone <this repository> tidal-bb10
-cd tidal-bb10
-cp .env.example .env     # then set BB_PASSWORD in .env
-docker compose up -d
-```
-
-### Plain Python (home network only)
-
-Needs Python 3.10 or newer.
-
-```bash
-cd server
-./start.sh
-```
-
-It prints the address to use on the phone.
-
-### Settings
-
-| Variable | Meaning |
-| --- | --- |
-| `BB_PASSWORD` | Password the app and web player must send. User name in the browser: `bb`. Required in the Docker setup. |
-| `TIDAL_QUALITY` | `LOW` (96k AAC, saves mobile data), `HIGH` (320k AAC, default), `LOSSLESS` (FLAC, needs a lot of bandwidth) |
-| `PORT` | Port on the host (Docker) or to listen on (plain Python). Default `8686`. |
-| `TIDAL_SESSION_FILE` | Where the TIDAL login is saved. The Docker image uses a volume. |
-
-## 2. Connect your TIDAL account
-
-The bridge needs to be logged in to your TIDAL account once. You never type
-your TIDAL password into the bridge or the phone: TIDAL's own website asks for
-it, the same way you connect a smart TV.
-
-1. Get a login link. Any of these shows the same link and code:
-   - **The BlackBerry app**: open it and enter the server address. If the
-     bridge isn't connected yet, a **Connect TIDAL** screen appears.
-   - **A browser**: open `http://<server-address>:8686/` (user name `bb`
-     and your `BB_PASSWORD` if it asks).
-   - **The server log**: Portainer → Containers → `tidal-bb10` → Logs, or
-     `docker compose logs tidal-bb10`, or the terminal running `start.sh`.
-     Look for `Connect your TIDAL account`.
-2. On any phone or computer with a modern browser, open the link, for example
-   `https://link.tidal.com/ABCDE`. (The BB10 browser is too old for TIDAL's
-   login page.)
-3. Log in with your TIDAL account. If it asks for a code, enter the code
-   shown next to the link.
-4. Done. Within a few seconds the app's login screen closes and the web
-   player continues by itself.
-
-Good to know:
-- The code is valid for about 5 minutes. A new one appears automatically
-  (in the app, the browser and the log) when the old one expires.
-- The login is saved on the server (in the Docker volume, or
-  `server/tidal-session.json`) and renews itself, so you do this only once.
-- To switch accounts or log in again, delete that saved login and restart
-  the bridge. With Docker: remove the `tidal-bb10-data` volume.
-- If you change your TIDAL password or sign out all devices in your TIDAL
-  account, the bridge asks you to connect again.
-
-## 3. Install the app on the phone
-
-1. Download `tidal-bb10.bar` from the
-   [Releases](../../releases) page, or build it yourself (below).
+1. Download `tidal-bb10.bar` from the [Releases](../../releases) page, or
+   build it yourself (see below).
 2. On the phone, turn on Development Mode: Settings → Security and Privacy →
    Development Mode.
-3. Sideload the `.bar` with a tool such as Sachesi or DDPB.
-4. Open Tidal-BB10. It asks for the server address (for example
-   `192.168.1.10:8686`) and the password. You can change these later by
-   swiping down from the top of the app → Settings. If the bridge isn't
-   connected to TIDAL yet, the app shows the login screen from step 2.
+3. Sideload the `.bar` with a tool such as Sachesi or DDPB. When BB10 asks
+   for permissions, allow **Shared Files** if you want to save downloads on
+   the SD card.
 
-Prefer not to install anything? Open `http://<server-address>:8686/` in the
-BB10 browser instead. The web player keeps playing with the screen off.
+## First start: log in to TIDAL
 
-### Troubleshooting
+The app opens a **Log in to TIDAL** screen with an address and a code.
 
-- **"Cannot reach the server"**: check the address, that the phone can reach
-  that machine (same Wi-Fi, or the port is open in the server's firewall), and
-  that the bridge is running.
-- **"The server wants a password"**: enter the same `BB_PASSWORD` in Settings.
-- **"The server is not connected to TIDAL yet"**: follow step 2.
-- **Anything else**: swipe down from the top → Log shows what went wrong.
+1. On any other phone or computer with a modern browser, open the address,
+   for example `link.tidal.com/ABCDE`. The BB10 browser is too old for
+   TIDAL's login page.
+2. Log in with your TIDAL account, and enter the code if it asks for one.
+3. The app continues by itself within a few seconds.
 
-## 4. Build the app yourself
+You never type your TIDAL password into the app: TIDAL's own website asks for
+it, the same way you connect a smart TV. The login is saved only on the
+phone, in the app's private storage, and renews itself. Nothing about your
+account is in the app package. If a code expires, the app fetches a new one;
+**New code** does the same by hand.
 
-BlackBerry no longer offers the Native SDK for download, so the build runs in
-a community Docker image that contains the BlackBerry 10 Native SDK 10.3.1
-(`yamsergey/bb10-ndk:0.6`). It needs Docker on an x86_64 (Intel/AMD) Linux
-machine.
+## Settings
+
+Swipe down from the top of the app → Settings.
+
+| Setting | What it does |
+| --- | --- |
+| TIDAL account | Log out, or log in again (for example to switch accounts) |
+| Streaming quality | Data saver (96k AAC) or Normal (320k AAC); also used for new downloads |
+| Save downloads on | Phone or SD card. Move earlier downloads from My music → Downloads. |
+| Advanced | The app's identifier at TIDAL (client ID and secret, not your account). Only change it if logging in stops working; clear both fields to go back to the default. |
+
+Swipe down → **Log** shows what the app is doing, including a connection test
+of TIDAL's servers on every start. It's the first place to look when
+something goes wrong.
+
+## Troubleshooting
+
+- **Nothing loads, or "No connection to TIDAL"**: check the Log. The first
+  lines should read `TLS: library OpenSSL 1.1.1w`, followed by
+  `Connection test: … OK` for each TIDAL server. If the Log says
+  `BB10 system OpenSSL` instead, the bundled network library didn't load;
+  reinstall the app.
+- **Logging in stops working for everyone**: TIDAL may have blocked the
+  app's identifier. Check this repository for an update, or enter a newer
+  client ID and secret under Settings → Advanced.
+- **Downloads on the SD card are missing**: they're hidden while the card is
+  out, and come back when it's inserted again.
+- Lines in the Log such as `pushPage`, `NavigationPane` or
+  `UIObjectPrivate::notifyMessage` come from BB10 itself and can be ignored.
+
+## Build it yourself
+
+The build runs in a Docker image that contains the BlackBerry 10 Native SDK
+10.3.1, because BlackBerry no longer offers the SDK for download. You need
+Docker on an x86_64 (Intel/AMD) Linux machine.
 
 ```bash
-cd app
-./build.sh                       # with Docker on this machine
-./remote-build.sh user@server    # or: build on another machine over SSH
+./build.sh                       # Docker on this machine
+./remote-build.sh user@server    # or build on another machine over SSH
 ```
 
-The result is `app/build/tidal-bb10.bar`, an unsigned package for sideloading.
-`app/tools/make-icons.py` redraws the icon and button images.
+The result is `build/tidal-bb10.bar`, an unsigned package for sideloading.
+
+The first build downloads `lib/libQtNetwork.so.4` (about 4 MB) from the
+[bb10-qtnetwork](https://github.com/JBraddockm/bb10-qtnetwork) project with
+`tools/fetch-qtnetwork.sh`. The download is pinned to one commit and checked
+against its SHA-256. It isn't stored in this repository, because that project
+doesn't have a licence yet (see Credits).
+
+`tools/make-icons.py` redraws the app icon and button images.
+
+## How it works
+
+BB10's own networking only speaks TLS 1.0 and trusts certificates from around
+2017. TIDAL's servers require TLS 1.2 or newer, so the stock system can't
+reach them. The app works around that, and around BB10's old media player:
+
+| Part | What it does |
+| --- | --- |
+| `lib/libQtNetwork.so.4` | A replacement QtNetwork with OpenSSL 1.1.1 (TLS 1.2 and 1.3) built in. The app starts with `app/native/lib` first on its library path (`bar-descriptor.xml`), so this copy loads instead of the system one. |
+| `assets/cacert.pem` | Current Mozilla root certificates, used for every secure connection |
+| `assets/tidal.js` | The TIDAL client: login, renewing the login, browsing, playlists and favourites |
+| `src/localserver.cpp` | A small server on `127.0.0.1` inside the app. The media player streams from it: it relays songs from TIDAL and decrypts downloads as they play. |
+| `src/downloads.cpp` | Downloads, encrypts and keeps track of songs for offline listening |
+| `src/player.cpp` | The play queue, shuffle, and the system's "now playing" controls |
 
 ## Security and limitations
 
-- The phone talks to the bridge over **plain HTTP**: the password and the
-  music are not encrypted on the way. Use a password you use nowhere else,
-  or keep the bridge on your home network or behind a VPN.
-- Anyone with the password can play music on your TIDAL account, within
-  TIDAL's limits for simultaneous streams.
-- The saved login (`tidal-session.json`, or the Docker volume) gives access
-  to your TIDAL account. Never share or commit it.
-- TIDAL can change its private API at any time. When something breaks,
-  updating `tidalapi` usually fixes it: redeploy the stack, or run
-  `.venv/bin/pip install -U tidalapi` in `server/`.
-- Videos and Dolby Atmos tracks are not supported.
+- Your TIDAL login stays on your phone. Anyone who can use the unlocked phone
+  can use the app, as with any music app.
+- The app carries the same TIDAL app identifier as the tidalapi library. It
+  identifies the app, not you, but anyone can read it from the `.bar`, and
+  TIDAL can block it at any time.
+- The app uses TIDAL's unofficial API, which can change at any time and
+  break the app until it's updated. Using third-party clients may go against
+  TIDAL's terms of service.
+- Uninstalling the app makes downloads on the SD card unplayable. Delete the
+  hidden `.tidal-bb10` folder on the card to free the space.
+- Videos, Dolby Atmos and lossless are not supported.
 
 ## Credits
 
-- [tidalapi](https://github.com/tamland/python-tidal) for talking to TIDAL
-- The BB10 community for keeping the Native SDK usable, including the
-  `yamsergey/bb10-ndk` Docker image
+This app stands on the work of others. Thank you to:
 
-## License
+- **[JBraddockm/bb10-qtnetwork](https://github.com/JBraddockm/bb10-qtnetwork)**
+  for the patched Qt 4.8.6 QtNetwork with OpenSSL 1.1.1w that gives BB10
+  modern TLS. Without it, this app could not reach TIDAL. That project in
+  turn credits:
+  - **[sw7ft/BerryCore](https://github.com/sw7ft/BerryCore)** for the
+    OpenSSL 1.1.1w build for BB10
+  - University of Melbourne patches for porting Qt 4.8 to OpenSSL 1.1
+- **[EbbLabs/python-tidal](https://github.com/EbbLabs/python-tidal)**
+  (tidalapi, originally by tamland, and its contributors) for showing how
+  TIDAL's API, login and streams work. This app's TIDAL client is a fresh
+  JavaScript implementation based on that knowledge, and uses the same public
+  app identifier.
+- **[The OpenSSL Project](https://www.openssl.org/)**: OpenSSL is built into
+  the QtNetwork library above. *This product includes software developed by
+  the OpenSSL Project for use in the OpenSSL Toolkit
+  (https://www.openssl.org/). This product includes cryptographic software
+  written by Eric Young (eay@cryptsoft.com).*
+- **[Mozilla](https://wiki.mozilla.org/CA)** for the root certificate list,
+  and **[curl](https://curl.se/docs/caextract.html)** for publishing it as
+  `cacert.pem`
+- **[The Qt Project](https://www.qt.io/)** for Qt 4.8, and **BlackBerry** for
+  Cascades and the BlackBerry 10 Native SDK
+- **[yamsergey/bb10-ndk](https://hub.docker.com/r/yamsergey/bb10-ndk)** for
+  the Docker image with the BB10 Native SDK, which makes building possible
+  today
+- **[zsavajji/berry-cascades](https://github.com/zsavajji/berry-cascades)**,
+  whose build setup showed how to build and package a Cascades app from the
+  command line with that image
+- The BB10 community, for keeping these phones useful
+
+### Third-party licences
+
+| Component | Used as | Licence |
+| --- | --- | --- |
+| bb10-qtnetwork (`lib/libQtNetwork.so.4`) | Downloaded at build time, included in the `.bar` | No licence published yet. It's based on Qt 4.8.6 (LGPL 2.1) and OpenSSL 1.1.1w (OpenSSL and SSLeay licence). |
+| Mozilla root certificates (`assets/cacert.pem`) | Included | [MPL 2.0](https://www.mozilla.org/MPL/2.0/) |
+| tidalapi | Reference only; no code included | LGPL-3.0 |
+| Qt 4.8, Cascades | Provided by the phone | LGPL 2.1 / BlackBerry |
+| BlackBerry 10 Native SDK, `yamsergey/bb10-ndk` | Build only | BlackBerry SDK licence agreement |
+
+**Note for anyone publishing a `.bar`:** the package contains the
+bb10-qtnetwork library. Until that project publishes a licence and its source
+changes, which Qt's LGPL requires for modified versions, sharing a `.bar` that
+includes it isn't clearly permitted. Building it yourself from this repository
+for your own phone is fine.
+
+## Licence
 
 Copyright (C) 2026 Tidal-BB10 contributors
 
@@ -176,3 +192,6 @@ version. See [LICENSE](LICENSE) for the full text.
 This program is distributed in the hope that it will be useful, but WITHOUT
 ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 FOR A PARTICULAR PURPOSE.
+
+The GPL applies to this project's own code. Third-party components keep their
+own licences (see above).
